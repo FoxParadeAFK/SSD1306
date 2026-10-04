@@ -1,8 +1,16 @@
 from machine import I2C, Pin
 from micropython import const
 
+# reference p.20 8.1.5.2
 _SLAVE_ADDRESS: int = const(0x3C)
+''' __Either addressed to 0x3C or 0x3D__   
+    Used to establish transmissions connection
+'''
 _CONTROL_BYTE: int = const(0x00)
+''' __Consist of CO and D/C bits followed by six '0's__   
+    `CO`: if logic '0' then the following information is data bytes only   
+    `D/C`: if logic '0' the next data byte is a command, else logic '1' defines a GDDRAM data
+'''
 
 _MUX_RATIO: int = const(0xA8)
 _DISPLAY_OFFSET: int = const(0xD3)
@@ -39,3 +47,5 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
     _CHARGE_PUMP, 0x14,
     _DISPLAY | 0x01
 ]))
+
+i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
