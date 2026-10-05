@@ -88,7 +88,6 @@ _DISPLAY: int = const(0xAE)
 
 i2c: I2C = I2C(sda = Pin(16), scl = Pin(17))
 buffer: list[int] = []
-page_buffer: list[int] = []
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
     _MUX_RATIO, 0x3F,
@@ -110,31 +109,31 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
 
-raw: list[int] = open('triangle.bin', 'rb').read()
-CURSOR: list[int] = [20, 2]
-RAW_WIDTH: int = 13
+# --
+
+_CURSOR: list[int] = [20, 2]
+_RAW_WIDTH: int = 13
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
-    _COLUMN_ADDRESS, CURSOR[0], CURSOR[0] + RAW_WIDTH - 1,
-    _PAGE_ADDRESS, CURSOR[1], 0x07
+    _COLUMN_ADDRESS, _CURSOR[0], _CURSOR[0] + _RAW_WIDTH - 1,
+    _PAGE_ADDRESS, _CURSOR[1], 0x07
 ]))
 
-def translate_raw_intensity(_byte_pos: int) -> int:
-    return 0x1 if raw[_byte_pos] > 0 else 0x0
+raw: list[int] = open('triangle.bin', 'rb').read()
+page_buffer: list[int] = [0x00] * _RAW_WIDTH
 
 for _byte_pos in range(len(raw)):
-    col: int = _byte_pos % RAW_WIDTH
-    seg: int = _byte_pos // RAW_WIDTH
+    col: int = _byte_pos % _RAW_WIDTH
+    seg: int = _byte_pos // _RAW_WIDTH
 
-    if seg % 8 == 7 and col == RAW_WIDTH - 1: 
+    if _byte_pos % (_RAW_WIDTH * 8 - 1) == 0: 
         buffer.extend(page_buffer)
-        page_buffer.clear()
-
     elif seg % 8 == 0: 
-        page_buffer.append(translate_raw_intensity(_byte_pos))
+        page_buffer[col] = (0x1 if raw[_byte_pos] > 0 else 0x0)
     else:
-        page_seg: int = seg % 8
-        col_seg_byte: int = (translate_raw_intensity(_byte_pos)) << page_seg
+        col_seg_byte: int = (0x1 if raw[_byte_pos] > 0 else 0x0) << seg % 8
         page_buffer[col] = page_buffer[col] | col_seg_byte
+
+buffer.extend(page_buffer)
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(buffer)) 
