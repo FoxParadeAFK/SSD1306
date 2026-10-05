@@ -87,7 +87,8 @@ _CHARGE_PUMP: int = const(0x8D)
 _DISPLAY: int = const(0xAE)
 
 i2c: I2C = I2C(sda = Pin(16), scl = Pin(17))
-buffer: list = []
+buffer: list[int] = []
+page_buffer: list[int] = []
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
     _MUX_RATIO, 0x3F,
@@ -109,14 +110,13 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
 
-raw: list[int] = open('circle.bin', 'rb').read()
-page_buffer: list[int] = []
-RAW_WIDTH: int = 16
-
+raw: list[int] = open('triangle.bin', 'rb').read()
+CURSOR: list[int] = [20, 2]
+RAW_WIDTH: int = 13
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
-    _COLUMN_ADDRESS, 0x00, RAW_WIDTH - 1,
-    _PAGE_ADDRESS, 0x00, 0x07
+    _COLUMN_ADDRESS, CURSOR[0], CURSOR[0] + RAW_WIDTH - 1,
+    _PAGE_ADDRESS, CURSOR[1], 0x07
 ]))
 
 def translate_raw_intensity(_byte_pos: int) -> int:
@@ -136,6 +136,5 @@ for _byte_pos in range(len(raw)):
         page_seg: int = seg % 8
         col_seg_byte: int = (translate_raw_intensity(_byte_pos)) << page_seg
         page_buffer[col] = page_buffer[col] | col_seg_byte
-
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(buffer)) 
