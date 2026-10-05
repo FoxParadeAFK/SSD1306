@@ -112,14 +112,14 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
 # --
 
 _CURSOR: list[int] = [20, 2]
-_RAW_WIDTH: int = 13
+_RAW_WIDTH: int = 27
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
     _COLUMN_ADDRESS, _CURSOR[0], _CURSOR[0] + _RAW_WIDTH - 1,
     _PAGE_ADDRESS, _CURSOR[1], 0x07
 ]))
 
-raw: list[int] = open('triangle.bin', 'rb').read()
+raw: list[int] = open('oval.bin', 'rb').read()
 page_buffer: list[int] = [0x00] * _RAW_WIDTH
 
 for _byte_pos in range(len(raw)):
