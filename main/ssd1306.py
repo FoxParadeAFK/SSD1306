@@ -111,19 +111,31 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
 
 raw: list[int] = open('circle.bin', 'rb').read()
 page_buffer: list[int] = []
+RAW_WIDTH: int = 16
+
+
+i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
+    _COLUMN_ADDRESS, 0x00, RAW_WIDTH - 1,
+    _PAGE_ADDRESS, 0x00, 0x07
+]))
+
+def translate_raw_intensity(_byte_pos: int) -> int:
+    return 0x1 if raw[_byte_pos] > 0 else 0x0
 
 for _byte_pos in range(len(raw)):
-    col: int = _byte_pos % 16
-    seg: int = _byte_pos // 16
+    col: int = _byte_pos % RAW_WIDTH
+    seg: int = _byte_pos // RAW_WIDTH
 
-    if seg % 8 == 0: 
-        page_buffer.append(raw[_byte_pos])
+    if seg % 8 == 7 and col == RAW_WIDTH - 1: 
+        buffer.extend(page_buffer)
+        page_buffer.clear()
+
+    elif seg % 8 == 0: 
+        page_buffer.append(translate_raw_intensity(_byte_pos))
     else:
         page_seg: int = seg % 8
-        col_seg_byte: int = (0x1 if raw[_byte_pos] > 0 else 0x0) << page_seg
+        col_seg_byte: int = (translate_raw_intensity(_byte_pos)) << page_seg
         page_buffer[col] = page_buffer[col] | col_seg_byte
 
-    if seg == 8: break
 
-
-i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(page_buffer)) 
+i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(buffer)) 
