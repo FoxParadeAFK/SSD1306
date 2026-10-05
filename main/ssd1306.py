@@ -109,4 +109,21 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
 
-print(bytearray(open('circle.bin', 'rb').read()))
+raw: list[int] = open('circle.bin', 'rb').read()
+page_buffer: list[int] = []
+
+for _byte_pos in range(len(raw)):
+    col: int = _byte_pos % 16
+    seg: int = _byte_pos // 16
+
+    if seg % 8 == 0: 
+        page_buffer.append(raw[_byte_pos])
+    else:
+        page_seg: int = seg % 8
+        col_seg_byte: int = (0x1 if raw[_byte_pos] > 0 else 0x0) << page_seg
+        page_buffer[col] = page_buffer[col] | col_seg_byte
+
+    if seg == 8: break
+
+
+i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(page_buffer)) 
