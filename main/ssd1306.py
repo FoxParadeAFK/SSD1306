@@ -109,7 +109,4 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
 
-for i in FONT.values():
-    buffer.extend(i + [0x00])
-
-i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(buffer))
+print(bytearray(open('circle.bin', 'rb').read()))
