@@ -111,29 +111,46 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
 
 # --
 
-_CURSOR: list[int] = [20, 2]
-_RAW_WIDTH: int = 27
+_PAGE_BYTE: int = const(0x08)
+_CURSOR: list[int] = [20, 5]
+_RAW_WIDTH: int = 16
 
-i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
-    _COLUMN_ADDRESS, _CURSOR[0], _CURSOR[0] + _RAW_WIDTH - 1,
-    _PAGE_ADDRESS, _CURSOR[1], 0x07
-]))
-
-raw: list[int] = open('oval.bin', 'rb').read()
+raw: list[int] = open('circle.bin', 'rb').read()
 page_buffer: list[int] = [0x00] * _RAW_WIDTH
 
 for _byte_pos in range(len(raw)):
     col: int = _byte_pos % _RAW_WIDTH
     seg: int = _byte_pos // _RAW_WIDTH
 
-    if _byte_pos % (_RAW_WIDTH * 8 - 1) == 0: 
+    if _byte_pos != 0 and _byte_pos % (_RAW_WIDTH * _PAGE_BYTE - 1) == 0: 
         buffer.extend(page_buffer)
-    elif seg % 8 == 0: 
+    elif seg % _PAGE_BYTE == 0: 
         page_buffer[col] = (0x1 if raw[_byte_pos] > 0 else 0x0)
     else:
-        col_seg_byte: int = (0x1 if raw[_byte_pos] > 0 else 0x0) << seg % 8
+        col_seg_byte: int = (0x1 if raw[_byte_pos] > 0 else 0x0) << seg % _PAGE_BYTE
         page_buffer[col] = page_buffer[col] | col_seg_byte
 
 buffer.extend(page_buffer)
+buffer.extend([0x00] * _RAW_WIDTH) # necessary for offset
+
+# --
+
+page: int = _CURSOR[1] // _PAGE_BYTE
+page_offset: int = _CURSOR[1] % _PAGE_BYTE
+
+page_buffer: list[int] = [0x00] * _RAW_WIDTH
+
+for _byte_pos in range(len(buffer)):
+    col: int = _byte_pos % _RAW_WIDTH
+
+    page_col_page: int = buffer[_byte_pos]
+    buffer[_byte_pos] = buffer[_byte_pos] << page_offset
+    buffer[_byte_pos] = buffer[_byte_pos] | (page_buffer[col] >> (_PAGE_BYTE - page_offset))
+    page_buffer[col] = page_col_page
+        
+i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
+    _COLUMN_ADDRESS, _CURSOR[0], _CURSOR[0] + _RAW_WIDTH - 1,
+    _PAGE_ADDRESS, page, 0x07
+]))
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(buffer)) 
