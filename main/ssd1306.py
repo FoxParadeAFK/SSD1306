@@ -113,35 +113,39 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
 
 _PAGE_BYTE: int = const(0x08)
 _CURSOR: list[int] = [20, 5]
-_RAW_WIDTH: int = 16
 
-raw: list[int] = open('circle.bin', 'rb').read()
-page_buffer: list[int] = [0x00] * _RAW_WIDTH
+RAW: list[int] = open('circle.bin', 'rb').read()
+RAW_LENGTH: int = len(RAW)
+RAW_WIDTH: int = 16
+RAW_HEIGHT: int = RAW_LENGTH // 16
+page_buffer: list[int] = [0x00] * RAW_WIDTH
 
-for _byte_pos in range(len(raw)):
-    col: int = _byte_pos % _RAW_WIDTH
-    seg: int = _byte_pos // _RAW_WIDTH
+for _byte_pos in range(RAW_LENGTH):
+    col: int = _byte_pos % RAW_WIDTH
+    seg: int = _byte_pos // RAW_WIDTH
 
-    if _byte_pos != 0 and _byte_pos % (_RAW_WIDTH * _PAGE_BYTE - 1) == 0: 
+    if _byte_pos != 0 and _byte_pos % (RAW_WIDTH * _PAGE_BYTE - 1) == 0: 
         buffer.extend(page_buffer)
     elif seg % _PAGE_BYTE == 0: 
-        page_buffer[col] = (0x1 if raw[_byte_pos] > 0 else 0x0)
+        page_buffer[col] = (0x1 if RAW[_byte_pos] > 0 else 0x0)
     else:
-        col_seg_byte: int = (0x1 if raw[_byte_pos] > 0 else 0x0) << seg % _PAGE_BYTE
+        col_seg_byte: int = (0x1 if RAW[_byte_pos] > 0 else 0x0) << seg % _PAGE_BYTE
         page_buffer[col] = page_buffer[col] | col_seg_byte
 
-buffer.extend(page_buffer)
-buffer.extend([0x00] * _RAW_WIDTH) # necessary for offset
+if (RAW_HEIGHT % _PAGE_BYTE != 0):
+    buffer.extend(page_buffer)
+    
+buffer.extend([0x00] * RAW_WIDTH) # necessary for offset
 
 # --
 
 page: int = _CURSOR[1] // _PAGE_BYTE
 page_offset: int = _CURSOR[1] % _PAGE_BYTE
 
-page_buffer: list[int] = [0x00] * _RAW_WIDTH
+page_buffer: list[int] = [0x00] * RAW_WIDTH
 
 for _byte_pos in range(len(buffer)):
-    col: int = _byte_pos % _RAW_WIDTH
+    col: int = _byte_pos % RAW_WIDTH
 
     page_col_page: int = buffer[_byte_pos]
     buffer[_byte_pos] = buffer[_byte_pos] << page_offset
@@ -149,7 +153,7 @@ for _byte_pos in range(len(buffer)):
     page_buffer[col] = page_col_page
         
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
-    _COLUMN_ADDRESS, _CURSOR[0], _CURSOR[0] + _RAW_WIDTH - 1,
+    _COLUMN_ADDRESS, _CURSOR[0], _CURSOR[0] + RAW_WIDTH - 1,
     _PAGE_ADDRESS, page, 0x07
 ]))
 
