@@ -112,41 +112,31 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
 
 # --
 
-_FONT_SIZE: int = const(0x01)
+_FONT_SIZE: int = const(0x04)
 _PAGE_BYTE: int = const(0x08)
-_CURSOR: list[int] = [20, 0]
+_CURSOR: list[int] = [0, 0]
 
 RAW: list[int] = open('circle.bin', 'rb').read()
 RAW_LENGTH: int = len(RAW)
 RAW_WIDTH: int = 16
 RAW_HEIGHT: int = RAW_LENGTH // RAW_WIDTH
-page_buffer: list[int] = [0x00] * (RAW_WIDTH * _FONT_SIZE) * ceil(RAW_HEIGHT / _PAGE_BYTE)
 
-for _byte_pos in range(RAW_LENGTH):
-    col: int = _byte_pos % RAW_WIDTH
-    seg: int = _byte_pos // RAW_WIDTH
+IMG_WIDTH: int = RAW_WIDTH * _FONT_SIZE
+
+page_buffer: list[int] = [0x00] * (IMG_WIDTH) * ceil(RAW_HEIGHT / (_PAGE_BYTE // _FONT_SIZE))
+
+for _byte_pointer in range(RAW_LENGTH):
+    col: int = _byte_pointer % RAW_WIDTH
+    seg: int = _byte_pointer // RAW_WIDTH
     page: int = seg // (_PAGE_BYTE // _FONT_SIZE)
 
-    raw_pixel: int = RAW[_byte_pos]
-    raw_pixel_representation: list[int] = [0x01] if raw_pixel > 0 else [0x00]
+    raw_pixel: int = RAW[_byte_pointer]
+    raw_pixel_representation: list[int] = FONT['\''] if raw_pixel > 0 else FONT[' ']
     
     for font_byte_pointer in range(len(raw_pixel_representation)):
-        print((page * _PAGE_BYTE) + (col * _FONT_SIZE + font_byte_pointer))
-        page_buffer[(page * RAW_WIDTH * _FONT_SIZE) + (col * _FONT_SIZE + font_byte_pointer)] |= raw_pixel_representation[font_byte_pointer] << (seg % _PAGE_BYTE // _FONT_SIZE)
+        page_buffer[(page * IMG_WIDTH) + (col * _FONT_SIZE + font_byte_pointer)] |= raw_pixel_representation[font_byte_pointer] << (_FONT_SIZE * (seg % (_PAGE_BYTE // _FONT_SIZE)))
 
 print(page_buffer)
-
-
-    # if _byte_pos != 0 and _byte_pos % (RAW_WIDTH * _PAGE_BYTE - 1) == 0: 
-    #     buffer.extend(page_buffer)
-    # elif seg % _PAGE_BYTE == 0: 
-    #     page_buffer[col] = (0x1 if RAW[_byte_pos] > 0 else 0x0)
-    # else:
-    #     col_seg_byte: int = (0x1 if RAW[_byte_pos] > 0 else 0x0) << seg % _PAGE_BYTE
-    #     page_buffer[col] = page_buffer[col] | col_seg_byte
-
-if (RAW_HEIGHT % _PAGE_BYTE != 0):
-    buffer.extend(page_buffer)
     
 buffer.extend([0x00] * RAW_WIDTH) # necessary for offset
 
@@ -166,8 +156,8 @@ buffer.extend([0x00] * RAW_WIDTH) # necessary for offset
 #     page_buffer[col] = page_col_page
         
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
-    _COLUMN_ADDRESS, _CURSOR[0], _CURSOR[0] + RAW_WIDTH - 1,
-    _PAGE_ADDRESS, page, 0x07
+    _COLUMN_ADDRESS, _CURSOR[0], _CURSOR[0] + (RAW_WIDTH * _FONT_SIZE) - 1,
+    _PAGE_ADDRESS, 0x00, 0x07
 ]))
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(page_buffer)) 
