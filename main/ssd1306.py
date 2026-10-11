@@ -57,6 +57,8 @@ MICRO_FONT: dict[str, list[int]] = {
     '\\': [0x1, 0x2, 0x4, 0x0],
     '/': [0x4, 0x2, 0x1, 0x0],
     '|': [0x0, 0x7, 0x0, 0x0],
+    ':': [0x0, 0x5, 0x0, 0x0],
+    '.': [0x0, 0x4, 0x0, 0x0],
     ' ': [0x0, 0x0, 0x0, 0x0],
 }
 
@@ -121,11 +123,14 @@ _FONT_SIZE: int = const(0x04)
     Ideal to keep it as mini as possible...
 '''
 FONT: dict[str, list[int]] = MICRO_FONT
+ASCII_GRADIENT: list = [FONT[' '], FONT['.'], FONT[':'], FONT['-'], FONT['1'], FONT['|'], FONT['+'], FONT['x'], 
+                        FONT['='], FONT['c'], FONT['h'], FONT['o'], FONT['a'], FONT['w'], FONT['m'], FONT['8']]
+ASCII_INCREMENTS: int = 256 // len(ASCII_GRADIENT)
 
 # some helpful raw binary image info
-RAW: list[int] = open('circle.bin', 'rb').read()
+RAW: list[int] = open('train.bin', 'rb').read()
 RAW_LENGTH: int = len(RAW)
-RAW_WIDTH: int = 16
+RAW_WIDTH: int = 32
 RAW_HEIGHT: int = RAW_LENGTH // RAW_WIDTH
 
 CHARACTER_IN_PAGE_WIDTH: int = _PAGE_BYTE // _FONT_SIZE
@@ -144,7 +149,8 @@ for _byte_pointer in range(RAW_LENGTH):
     page: int = seg // CHARACTER_IN_PAGE_WIDTH * BUFFER_IMAGE_WIDTH
 
     raw_pixel: int = RAW[_byte_pointer]
-    raw_pixel_representation: list[int] = FONT['1'] if raw_pixel > 0 else FONT['0']
+    print(raw_pixel, ASCII_INCREMENTS, raw_pixel // ASCII_INCREMENTS)
+    raw_pixel_representation: list[int] = ASCII_GRADIENT[raw_pixel // ASCII_INCREMENTS]
     
     for font_byte_pointer in range(len(raw_pixel_representation)):
         page_offset: int = _FONT_SIZE * (seg % (CHARACTER_IN_PAGE_WIDTH))
