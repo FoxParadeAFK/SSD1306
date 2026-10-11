@@ -141,7 +141,7 @@ page_buffer: list[int] = ([0x00] * BUFFER_IMAGE_WIDTH * BUFFER_IMAGE_HEIGHT)
 for _byte_pointer in range(RAW_LENGTH):
     col: int = _byte_pointer % RAW_WIDTH
     seg: int = _byte_pointer // RAW_WIDTH
-    page: int = seg // (CHARACTER_IN_PAGE_WIDTH)
+    page: int = seg // CHARACTER_IN_PAGE_WIDTH * BUFFER_IMAGE_WIDTH
 
     raw_pixel: int = RAW[_byte_pointer]
     raw_pixel_representation: list[int] = FONT['1'] if raw_pixel > 0 else FONT['0']
@@ -149,11 +149,7 @@ for _byte_pointer in range(RAW_LENGTH):
     for font_byte_pointer in range(len(raw_pixel_representation)):
         page_offset: int = _FONT_SIZE * (seg % (CHARACTER_IN_PAGE_WIDTH))
         buffer_col: int = col * _FONT_SIZE
-        page_buffer[(page * BUFFER_IMAGE_WIDTH) + buffer_col + font_byte_pointer] |= raw_pixel_representation[font_byte_pointer] << page_offset
-
-print(page_buffer)
-
-# --
+        page_buffer[page + buffer_col + font_byte_pointer] |= raw_pixel_representation[font_byte_pointer] << page_offset
 
 _CURSOR: list[int] = [0, 0]
 
@@ -171,7 +167,7 @@ _CURSOR: list[int] = [0, 0]
 #     page_buffer[col] = page_col_page
         
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
-    _COLUMN_ADDRESS, _CURSOR[0], _CURSOR[0] + (RAW_WIDTH * _FONT_SIZE) - 1,
+    _COLUMN_ADDRESS, _CURSOR[0], _CURSOR[0] + BUFFER_IMAGE_WIDTH - 1,
     _PAGE_ADDRESS, 0x00, 0x07
 ]))
 
