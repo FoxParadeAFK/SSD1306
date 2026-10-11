@@ -4,7 +4,7 @@ from micropython import const
 
 # reference: https://www.reddit.com/r/PixelArt/comments/ppcd19/smallest_legible_pixel_fonts/
 # 3x3 microfont
-FONT: dict[str, list[int]] = {
+MICRO_FONT: dict[str, list[int]] = {
     'a': [0x6, 0x7, 0x7, 0x0],
     'b': [0x7, 0x6, 0x6, 0x0],
     'c': [0x7, 0x5, 0x5, 0x0],
@@ -60,6 +60,11 @@ FONT: dict[str, list[int]] = {
     ' ': [0x0, 0x0, 0x0, 0x0],
 }
 
+BINARY_FONT: dict[str, list[int]] = {
+    '0': [0x00],
+    '1': [0x01],
+}
+
 # reference p.20 8.1.5.2
 _SLAVE_ADDRESS: int = const(0x3C)
 ''' __Either addressed to 0x3C or 0x3D__   
@@ -110,37 +115,47 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray([0x00] * 1024))
 
-# --
-
+_PAGE_BYTE: int = const(0x08) 
 _FONT_SIZE: int = const(0x04)
-_PAGE_BYTE: int = const(0x08)
-_CURSOR: list[int] = [0, 0]
+''' __Consists of size N where NxN states the dimensions of a character__   
+    Ideal to keep it as mini as possible...
+'''
+FONT: dict[str, list[int]] = MICRO_FONT
 
+# some helpful raw binary image info
 RAW: list[int] = open('circle.bin', 'rb').read()
 RAW_LENGTH: int = len(RAW)
 RAW_WIDTH: int = 16
 RAW_HEIGHT: int = RAW_LENGTH // RAW_WIDTH
 
-IMG_WIDTH: int = RAW_WIDTH * _FONT_SIZE
+CHARACTER_IN_PAGE_WIDTH: int = _PAGE_BYTE // _FONT_SIZE
 
-page_buffer: list[int] = [0x00] * (IMG_WIDTH) * ceil(RAW_HEIGHT / (_PAGE_BYTE // _FONT_SIZE))
+BUFFER_IMAGE_WIDTH: int = RAW_WIDTH * _FONT_SIZE
+BUFFER_IMAGE_HEIGHT: int = ceil(RAW_HEIGHT / CHARACTER_IN_PAGE_WIDTH)
+''' __Number of pages contain a full buffer image__   
+    Rounded upwards to ensure all is contained
+'''
+
+page_buffer: list[int] = ([0x00] * BUFFER_IMAGE_WIDTH * BUFFER_IMAGE_HEIGHT)
 
 for _byte_pointer in range(RAW_LENGTH):
     col: int = _byte_pointer % RAW_WIDTH
     seg: int = _byte_pointer // RAW_WIDTH
-    page: int = seg // (_PAGE_BYTE // _FONT_SIZE)
+    page: int = seg // (CHARACTER_IN_PAGE_WIDTH)
 
     raw_pixel: int = RAW[_byte_pointer]
-    raw_pixel_representation: list[int] = FONT['\''] if raw_pixel > 0 else FONT[' ']
+    raw_pixel_representation: list[int] = FONT['1'] if raw_pixel > 0 else FONT['0']
     
     for font_byte_pointer in range(len(raw_pixel_representation)):
-        page_buffer[(page * IMG_WIDTH) + (col * _FONT_SIZE + font_byte_pointer)] |= raw_pixel_representation[font_byte_pointer] << (_FONT_SIZE * (seg % (_PAGE_BYTE // _FONT_SIZE)))
+        page_offset: int = _FONT_SIZE * (seg % (CHARACTER_IN_PAGE_WIDTH))
+        buffer_col: int = col * _FONT_SIZE
+        page_buffer[(page * BUFFER_IMAGE_WIDTH) + buffer_col + font_byte_pointer] |= raw_pixel_representation[font_byte_pointer] << page_offset
 
 print(page_buffer)
-    
-buffer.extend([0x00] * RAW_WIDTH) # necessary for offset
 
 # --
+
+_CURSOR: list[int] = [0, 0]
 
 # page: int = _CURSOR[1] // _PAGE_BYTE
 # page_offset: int = _CURSOR[1] % _PAGE_BYTE
