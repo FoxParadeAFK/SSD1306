@@ -67,6 +67,13 @@ BINARY_FONT: dict[str, list[int]] = {
     '1': [0x01],
 }
 
+MICRO_FONT_GRADIENT: list[list[int]] = [MICRO_FONT[' '], MICRO_FONT['.'], MICRO_FONT[':'], MICRO_FONT['-'], 
+                                        MICRO_FONT['1'], MICRO_FONT['|'], MICRO_FONT['+'], MICRO_FONT['x'], 
+                                        MICRO_FONT['='], MICRO_FONT['c'], MICRO_FONT['h'], MICRO_FONT['o'], 
+                                        MICRO_FONT['a'], MICRO_FONT['w'], MICRO_FONT['m'], MICRO_FONT['8']]
+
+BINARY_FONT_GRADIENT: list[list[int]] = [BINARY_FONT['0'], BINARY_FONT['1']]
+
 # reference p.20 8.1.5.2
 _SLAVE_ADDRESS: int = const(0x3C)
 ''' __Either addressed to 0x3C or 0x3D__   
@@ -95,7 +102,6 @@ _CHARGE_PUMP: int = const(0x8D)
 _DISPLAY: int = const(0xAE)
 
 i2c: I2C = I2C(sda = Pin(16), scl = Pin(17))
-buffer: list[int] = []
 
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
     _MUX_RATIO, 0x3F,
@@ -123,12 +129,11 @@ _FONT_SIZE: int = const(0x04)
     Ideal to keep it as mini as possible...
 '''
 FONT: dict[str, list[int]] = MICRO_FONT
-ASCII_GRADIENT: list = [FONT[' '], FONT['.'], FONT[':'], FONT['-'], FONT['1'], FONT['|'], FONT['+'], FONT['x'], 
-                        FONT['='], FONT['c'], FONT['h'], FONT['o'], FONT['a'], FONT['w'], FONT['m'], FONT['8']]
-ASCII_INCREMENTS: int = 256 // len(ASCII_GRADIENT)
+GRADIENT: list[list[int]] = MICRO_FONT_GRADIENT
+ASCII_INCREMENTS: int = 256 // len(GRADIENT)
 
 # some helpful raw binary image info
-RAW: list[int] = open('train.bin', 'rb').read()
+RAW: list[int] = open('umbrella.bin', 'rb').read()
 RAW_LENGTH: int = len(RAW)
 RAW_WIDTH: int = 32
 RAW_HEIGHT: int = RAW_LENGTH // RAW_WIDTH
@@ -141,7 +146,7 @@ BUFFER_IMAGE_HEIGHT: int = ceil(RAW_HEIGHT / CHARACTER_IN_PAGE_WIDTH)
     Rounded upwards to ensure all is contained
 '''
 
-page_buffer: list[int] = ([0x00] * BUFFER_IMAGE_WIDTH * BUFFER_IMAGE_HEIGHT)
+buffer: list[int] = ([0x00] * BUFFER_IMAGE_WIDTH * BUFFER_IMAGE_HEIGHT)
 
 for _byte_pointer in range(RAW_LENGTH):
     col: int = _byte_pointer % RAW_WIDTH
@@ -149,13 +154,12 @@ for _byte_pointer in range(RAW_LENGTH):
     page: int = seg // CHARACTER_IN_PAGE_WIDTH * BUFFER_IMAGE_WIDTH
 
     raw_pixel: int = RAW[_byte_pointer]
-    print(raw_pixel, ASCII_INCREMENTS, raw_pixel // ASCII_INCREMENTS)
-    raw_pixel_representation: list[int] = ASCII_GRADIENT[raw_pixel // ASCII_INCREMENTS]
+    raw_pixel_representation: list[int] = GRADIENT[raw_pixel // ASCII_INCREMENTS]
     
     for font_byte_pointer in range(len(raw_pixel_representation)):
         page_offset: int = _FONT_SIZE * (seg % (CHARACTER_IN_PAGE_WIDTH))
         buffer_col: int = col * _FONT_SIZE
-        page_buffer[page + buffer_col + font_byte_pointer] |= raw_pixel_representation[font_byte_pointer] << page_offset
+        buffer[page + buffer_col + font_byte_pointer] |= raw_pixel_representation[font_byte_pointer] << page_offset
 
 _CURSOR: list[int] = [0, 0]
         
@@ -164,4 +168,4 @@ i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x00, bytearray([
     _PAGE_ADDRESS, 0x00, 0x07
 ]))
 
-i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(page_buffer)) 
+i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(buffer)) 
