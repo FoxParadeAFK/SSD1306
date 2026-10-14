@@ -125,10 +125,10 @@ _COMMONS: int = const(0x80)
 _SEGMENTS: int = const(0x40)
 _BYTE: int = const(0x08)
 
-RAW: list[int] = open('umbrella.bin', 'rb').read()
-RAW_LENGTH: int = len(RAW) 
-_RAW_WIDTH: int = const(32)
+_RAW_WIDTH: int = const(16)
 _RAW_HEIGHT: int = const(16)
+RAW: list[int] = open('circle.bin', 'rb').read()
+RAW_LENGTH: int = len(RAW) 
 
 _FONT_SIZE: int = const(0x04)
 FONT_PAGE_SIZE: int = _BYTE // _FONT_SIZE
@@ -138,6 +138,8 @@ FONT_PAGE_SIZE: int = _BYTE // _FONT_SIZE
 FONT: dict[str, list[int]] = MICRO_FONT
 GRADIENT: list[list[int]] = MICRO_FONT_GRADIENT
 GRADIENT_INCREMENTS: int = 256 // len(GRADIENT)
+
+CURSOR: tuple = (0, 0)
 
 buffer: bytearray = bytearray(_COMMONS * _SEGMENTS // _BYTE)
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, buffer)
@@ -153,12 +155,15 @@ for _raw_byte_pointer in range(RAW_LENGTH):
     # print(f"{page:4}", end = " ")
     # print(f"{page * _COMMONS + (raw_colunm * _FONT_SIZE):4}", end = " ")
     # print(f"{_FONT_SIZE * (raw_row % FONT_PAGE_SIZE):4}", end = " ")
+    # print(f"{CURSOR[0] + common:4}", end = " ")
 
     raw_pixel: int = RAW[_raw_byte_pointer]
     raw_pixel_representation: list[int] = GRADIENT[raw_pixel // GRADIENT_INCREMENTS]
     raw_pixel_offset: int = _FONT_SIZE * (raw_row % FONT_PAGE_SIZE)
 
-    for _font_byte_pointer in range(_FONT_SIZE):
-        buffer[page + common + _font_byte_pointer] |= raw_pixel_representation[_font_byte_pointer] << raw_pixel_offset
+    for _font_byte_pointer in range(_FONT_SIZE):     
+        if CURSOR[0] + common + _font_byte_pointer > _COMMONS - 1: continue
+
+        buffer[CURSOR[0] + page + common + _font_byte_pointer] |= raw_pixel_representation[_font_byte_pointer] << raw_pixel_offset
         
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(buffer)) 
