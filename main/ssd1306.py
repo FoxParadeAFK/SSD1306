@@ -96,7 +96,7 @@ _MEMORY_ADDRESS_MODE: int = const(0x20)
 _COLUMN_ADDRESS: int = const(0x21)
 _PAGE_ADDRESS: int = const(0x22)
 _ENTIRE_DISPLAY: int = const(0xA4)
-_NORMAL_DISPLAY: int = const(0xA7)
+_NORMAL_DISPLAY: int = const(0xA6)
 _OSCILLATOR_FREQUENCY: int = const(0xD5)
 _CHARGE_PUMP: int = const(0x8D)
 _DISPLAY: int = const(0xAE)
@@ -141,7 +141,7 @@ FONT: dict[str, list[int]] = MICRO_FONT
 GRADIENT: list[list[int]] = MICRO_FONT_GRADIENT
 GRADIENT_INCREMENTS: int = 256 // len(GRADIENT)
 
-CURSOR: tuple = (0, 43)
+CURSOR: tuple = (100, 30)
 
 buffer: bytearray = bytearray(_COMMONS * _SEGMENTS // _BYTE)
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, buffer)
@@ -163,8 +163,6 @@ for _raw_byte_pointer in range(RAW_LENGTH):
 
     # if buffer_page_pointer > 4: break
 
-    # print(f"{buffer_segments_pointer:4}", end = " ")
-
     for _font_byte_pointer in range(_FONT_SIZE):   
         if buffer_commons_pointer + _font_byte_pointer > _COMMONS - 1: break
         if buffer_segments_pointer > _SEGMENTS - 1: break
@@ -172,9 +170,12 @@ for _raw_byte_pointer in range(RAW_LENGTH):
         raw_pixel_adjusted: int = raw_pixel_representation[_font_byte_pointer] << page_offset
         raw_pixel_overflow: int = raw_pixel_adjusted >> 8
 
+        print(f"{raw_pixel_adjusted:4}", end = " ")
+        # print(f"{buffer_segments_pointer:4}", end = " ")
+
         buffer_overflow_page_pointer: int = buffer_page_pointer + 1
 
-        if raw_pixel_overflow > 0 and buffer_overflow_page_pointer < _BYTE - 1:
+        if raw_pixel_overflow > 0 and buffer_overflow_page_pointer < _BYTE:
             buffer[(buffer_overflow_page_pointer * _COMMONS) + buffer_commons_pointer + _font_byte_pointer] |= raw_pixel_overflow
 
         buffer[(buffer_page_pointer * _COMMONS) + buffer_commons_pointer + _font_byte_pointer] |= raw_pixel_adjusted
