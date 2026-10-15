@@ -96,7 +96,7 @@ _MEMORY_ADDRESS_MODE: int = const(0x20)
 _COLUMN_ADDRESS: int = const(0x21)
 _PAGE_ADDRESS: int = const(0x22)
 _ENTIRE_DISPLAY: int = const(0xA4)
-_NORMAL_DISPLAY: int = const(0xA6)
+_NORMAL_DISPLAY: int = const(0xA7)
 _OSCILLATOR_FREQUENCY: int = const(0xD5)
 _CHARGE_PUMP: int = const(0x8D)
 _DISPLAY: int = const(0xAE)
@@ -131,6 +131,8 @@ RAW: list[int] = open('circle.bin', 'rb').read()
 RAW_LENGTH: int = len(RAW) 
 
 _FONT_SIZE: int = const(0x04)
+''' __Size N where N represents the font dimensions NxN__
+'''
 FONT_PAGE_SIZE: int = _BYTE // _FONT_SIZE
 ''' __Amount a characters a given font size will take per page__  
     Examples with a font size '0x01' indicate 8 and a font size '0x04' indicate 2
@@ -139,31 +141,42 @@ FONT: dict[str, list[int]] = MICRO_FONT
 GRADIENT: list[list[int]] = MICRO_FONT_GRADIENT
 GRADIENT_INCREMENTS: int = 256 // len(GRADIENT)
 
-CURSOR: tuple = (0, 0)
+CURSOR: tuple = (0, 43)
 
 buffer: bytearray = bytearray(_COMMONS * _SEGMENTS // _BYTE)
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, buffer)
 
 for _raw_byte_pointer in range(RAW_LENGTH):
-    raw_colunm: int = _raw_byte_pointer % _RAW_WIDTH
-    raw_row: int = _raw_byte_pointer // _RAW_WIDTH
-
-    page: int = raw_row // FONT_PAGE_SIZE * _COMMONS
-    common: int = raw_colunm * _FONT_SIZE
-
-    # print(f"{RAW[_raw_byte_pointer]:4}", end = " ")
-    # print(f"{page:4}", end = " ")
-    # print(f"{page * _COMMONS + (raw_colunm * _FONT_SIZE):4}", end = " ")
-    # print(f"{_FONT_SIZE * (raw_row % FONT_PAGE_SIZE):4}", end = " ")
-    # print(f"{CURSOR[0] + common:4}", end = " ")
+    # raw image information
+    raw_colunm_pointer: int = _raw_byte_pointer % _RAW_WIDTH
+    raw_row_pointer: int = _raw_byte_pointer // _RAW_WIDTH
 
     raw_pixel: int = RAW[_raw_byte_pointer]
     raw_pixel_representation: list[int] = GRADIENT[raw_pixel // GRADIENT_INCREMENTS]
-    raw_pixel_offset: int = _FONT_SIZE * (raw_row % FONT_PAGE_SIZE)
 
-    for _font_byte_pointer in range(_FONT_SIZE):     
-        if CURSOR[0] + common + _font_byte_pointer > _COMMONS - 1: continue
+    # buffer information
+    buffer_commons_pointer: int = raw_colunm_pointer * _FONT_SIZE + CURSOR[0]
+    buffer_segments_pointer: int = raw_row_pointer * _FONT_SIZE + CURSOR[1]
 
-        buffer[CURSOR[0] + page + common + _font_byte_pointer] |= raw_pixel_representation[_font_byte_pointer] << raw_pixel_offset
+    buffer_page_pointer: int = buffer_segments_pointer // _BYTE
+    page_offset: int = buffer_segments_pointer % _BYTE
+
+    # if buffer_page_pointer > 4: break
+
+    # print(f"{buffer_segments_pointer:4}", end = " ")
+
+    for _font_byte_pointer in range(_FONT_SIZE):   
+        if buffer_commons_pointer + _font_byte_pointer > _COMMONS - 1: break
+        if buffer_segments_pointer > _SEGMENTS - 1: break
+
+        raw_pixel_adjusted: int = raw_pixel_representation[_font_byte_pointer] << page_offset
+        raw_pixel_overflow: int = raw_pixel_adjusted >> 8
+
+        buffer_overflow_page_pointer: int = buffer_page_pointer + 1
+
+        if raw_pixel_overflow > 0 and buffer_overflow_page_pointer < _BYTE - 1:
+            buffer[(buffer_overflow_page_pointer * _COMMONS) + buffer_commons_pointer + _font_byte_pointer] |= raw_pixel_overflow
+
+        buffer[(buffer_page_pointer * _COMMONS) + buffer_commons_pointer + _font_byte_pointer] |= raw_pixel_adjusted
         
 i2c.writeto_mem(_SLAVE_ADDRESS, _CONTROL_BYTE | 0x40, bytearray(buffer)) 
